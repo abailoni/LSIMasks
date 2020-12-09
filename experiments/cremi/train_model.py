@@ -6,7 +6,7 @@ from speedrun.log_anywhere import register_logger, log_image, log_scalar
 from speedrun.py_utils import create_instance
 
 from copy import deepcopy
-import vaeAffs
+import LSIMasks
 
 import os
 import torch
@@ -31,7 +31,6 @@ from neurofire.criteria.loss_transforms import RemoveSegmentationFromTarget
 from neurofire.criteria.loss_transforms import InvertTarget
 
 from segmfriends.datasets.cremi import get_cremi_loader
-from vaeAffs.utils.path_utils import get_source_dir
 
 import confnets
 
@@ -137,7 +136,7 @@ class BaseCremiExperiment(BaseExperiment, InfernoMixin, TensorboardMixin):
     def inferno_build_criterion(self):
         print("Building criterion")
         loss_kwargs = self.get("trainer/criterion/kwargs", {})
-        loss_name = self.get("trainer/criterion/loss_name", "vaeAffs.models.losses.PatchBasedLoss")
+        loss_name = self.get("trainer/criterion/loss_name", "LSIMasks.losses.latent_mask_loss.LatentMaskLoss")
         loss_config = {loss_name: loss_kwargs}
         loss_config[loss_name]['model'] = self.model
         if "model_kwargs" in self.get('model'):

@@ -75,18 +75,6 @@ class LatentMaskLoss(nn.Module):
                                                                     devices=devices,
                                                                     **sparse_affs_loss_kwargs)
 
-        # TODO: hack to adapt to stacked model:
-        self.downscale_and_crop_targets = {}
-        if hasattr(self.model, "collected_patchNet_kwargs"):
-            self.model_kwargs["patchNet_kwargs"] = [kwargs for i, kwargs in enumerate(self.model.collected_patchNet_kwargs) if i in self.model.trained_patchNets]
-
-            # FIXME: generalize to the non-stacked model (there I also have global in the keys...)
-            for nb, kwargs in enumerate(self.model_kwargs["patchNet_kwargs"]):
-                if "downscale_and_crop_target" in kwargs:
-                    # FIXME: adapt to new segmfriend function
-                    raise NotImplementedError
-                    self.downscale_and_crop_targets[nb] = DownsampleAndCrop3D(**kwargs["downscale_and_crop_target"])
-
 
 
     def forward(self, all_predictions, target):
