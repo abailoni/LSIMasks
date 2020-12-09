@@ -1,23 +1,21 @@
+import warnings
+import gc
+import numpy as np
+from copy import deepcopy
+
 import torch
 import torch.utils.data
 import torch.nn as nn
-
-from segmfriends.transform.volume import DownSampleAndCropTensorsInBatch
-from .util import *
-import numpy as np
-from copy import deepcopy
 from torch.nn.parallel.data_parallel import data_parallel
 
 from inferno.extensions.criteria.set_similarity_measures import SorensenDiceLoss
-
 from inferno.extensions.containers.graph import Identity
-
 from speedrun.log_anywhere import log_image, log_embedding, log_scalar
-
-import warnings
-import gc
-
 from segmfriends.utils.various import parse_data_slice
+from segmfriends.transform.volume import DownSampleAndCropTensorsInBatch
+
+from ..utils.various import auto_crop_tensor_to_shape
+from .sparse_affinitiees_loss import MultiLevelSparseAffinityLoss
 
 
 class LatentMaskLoss(nn.Module):
@@ -67,16 +65,13 @@ class LatentMaskLoss(nn.Module):
         self.BCE = nn.BCELoss()
         self.soresen_loss = SorensenDiceLoss()
 
-        from vaeAffs.models.vanilla_vae import VAE_loss
-        self.VAE_loss = VAE_loss()
-
         self.model = model
 
         self.train_sparse_loss = False
         self.sparse_multilevelDiceLoss = None
         if sparse_affs_loss_kwargs is not None:
             self.train_sparse_loss = True
-            self.sparse_multilevelDiceLoss = MultiLevelAffinityLoss(model, model_kwargs=model_kwargs,
+            self.sparse_multilevelDiceLoss = MultiLevelSparseAffinityLoss(model, model_kwargs=model_kwargs,
                                                                     devices=devices,
                                                                     **sparse_affs_loss_kwargs)
 
@@ -296,8 +291,8 @@ class LatentMaskLoss(nn.Module):
                 # Get some random prediction embeddings:
                 # ----------------------------
                 pred_strides = get_prediction_strides(pred_dws_fact, stride)
-                pred_patches, crop_slice_pred, nb_patches = extract_patches_torch_new(pred, (1, 1, 1), stride=pred_strides,
-                                                                                      max_random_crop=max_random_crop)
+                pred_patches, crop_slice_pred, nb_patches = extract_patches_torch(pred, (1, 1, 1), stride=pred_strides,
+                                                                                  max_random_crop=max_random_crop)
 
 
                 # Try to get some raw patches:
@@ -308,16 +303,16 @@ class LatentMaskLoss(nn.Module):
                 # Collect gt_segm patches and corresponding center labels:
                 # ----------------------------
                 crop_slice_targets = tuple(slice(sl.start, None) for sl in crop_slice_pred)
-                gt_patches, _, _ = extract_patches_torch_new(gt_segm, real_patch_shape, stride=stride,
-                                                             crop_slice=crop_slice_targets, limit_patches_to=nb_patches)
+                gt_patches, _, _ = extract_patches_torch(gt_segm, real_patch_shape, stride=stride,
+                                                         crop_slice=crop_slice_targets, limit_patches_to=nb_patches)
                 gt_patches = gt_patches[:, [0]]
 
                 # Make sure to crop some additional border and get the centers correctly:
                 # TODO: this can be now easily done by cropping the gt_patches...
                 crop_slice_center_labels = (slice(None), slice(None)) + tuple(slice(slc.start+int(sh/2), slc.stop) for slc, sh in zip(crop_slice_targets[2:], real_patch_shape))
-                target_at_patch_center, _, _ = extract_patches_torch_new(gt_segm, (1,1,1), stride=stride,
-                                                                         crop_slice=crop_slice_center_labels,
-                                                                         limit_patches_to=nb_patches)
+                target_at_patch_center, _, _ = extract_patches_torch(gt_segm, (1, 1, 1), stride=stride,
+                                                                     crop_slice=crop_slice_center_labels,
+                                                                     limit_patches_to=nb_patches)
                 # Get GT and other masks separately:
                 label_at_patch_center = target_at_patch_center[:,[0]]
                 mask_at_patch_center = target_at_patch_center[:,[1]]
@@ -470,26 +465,6 @@ class LatentMaskLoss(nn.Module):
 
 
 
-def auto_crop_tensor_to_shape(to_be_cropped, target_tensor_shape, return_slice=False,
-                              ignore_channel_and_batch_dims=True):
-    initial_shape = to_be_cropped.shape
-    diff = [int_sh - trg_sh for int_sh, trg_sh in zip(initial_shape, target_tensor_shape)]
-    if ignore_channel_and_batch_dims:
-        assert all([d >= 0 for d in diff[2:]]), "Target shape should be smaller!"
-    else:
-        assert all([d >= 0 for d in diff]), "Target shape should be smaller!"
-    left_crops = [int(d / 2) for d in diff]
-    right_crops = [shp - int(d / 2) if d % 2 == 0 else shp - (int(d / 2) + 1) for d, shp in zip(diff, initial_shape)]
-    if ignore_channel_and_batch_dims:
-        crop_slice = (slice(None), slice(None)) + tuple(slice(lft, rgt) for rgt, lft in zip(right_crops[2:], left_crops[2:]))
-    else:
-        crop_slice = tuple(slice(lft, rgt) for rgt, lft in zip(right_crops, left_crops))
-    if return_slice:
-        return crop_slice
-    else:
-        return to_be_cropped[crop_slice]
-
-
 def get_slicing_crops(pred_shape, target_shape, pred_ds_factor, real_patch_shape):
     # Compute new left crops:
     # (we do not care about the right crops, because anyway the extra patches are
@@ -534,7 +509,7 @@ def get_prediction_strides(pred_ds_factor, strides, max_crops=None):
     return pred_strides
 
 
-def extract_patches_torch_new(tensor, shape, stride, precrop_target=None, max_random_crop=None,
+def extract_patches_torch(tensor, shape, stride, precrop_target=None, max_random_crop=None,
                           # downscale_fctr=None,
                           crop_slice=None,
                           limit_patches_to=None,
