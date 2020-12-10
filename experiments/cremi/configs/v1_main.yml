@@ -362,7 +362,6 @@ model:
         mask_shape: [5,7,7]
         mask_dws_fact: [1, 1, 1] # Downscaling factor of the mask (with respect to the given target!)
         pred_dws_fact: [1, 1, 1] # Downscaling factor of the predicted embedding With respect to the given target!
-        core_shape: [1, 1, 1] # Exclude a patch from training if the center does contain more than one GT label
         sample_strides: # in the original resolution (of the target)
           - [2, 7, 7]
         limit_nb_decoded_masks_to: # 'factor', 'number'
@@ -373,7 +372,6 @@ model:
         mask_shape: [5,7,7]
         mask_dws_fact: [1, 4, 4]
         pred_dws_fact: [1, 1, 1]
-        core_shape: [1, 1, 1]
         sample_strides:
           - [2, 7, 7]
         limit_nb_decoded_masks_to: # 'factor', 'number'
@@ -384,7 +382,6 @@ model:
         mask_shape: [5,7,7]
         mask_dws_fact: [1, 2, 2]
         pred_dws_fact: [1, 1, 1]
-        core_shape: [1, 1, 1]
         sample_strides:
          - [2, 7, 7]
         limit_nb_decoded_masks_to: [120, 'number'] # 'factor', 'number'
@@ -394,7 +391,6 @@ model:
         mask_dws_fact: [1, 2, 2]
         pred_dws_fact: [1, 1, 1]
         mask_shape: [5,7,7]
-        core_shape: [1, 1, 1]
         sample_strides:
          - [2, 7, 7]
         limit_nb_decoded_masks_to: [90, 'number'] # 'factor', 'number'

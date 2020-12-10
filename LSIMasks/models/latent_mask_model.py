@@ -7,6 +7,10 @@ from copy import deepcopy
 
 
 class LatentMaskModel(MultiScaleInputMultiOutputUNet):
+    """
+    Basically a UNet model (allowing to predict embeddings at different depth levels)
+    with few additional small MaskDecoders.
+    """
     def __init__(self, *super_args, mask_decoders_kwargs=None, **super_kwargs):
         super(LatentMaskModel, self).__init__(*super_args, **super_kwargs)
 
@@ -25,7 +29,7 @@ class LatentMaskModel(MultiScaleInputMultiOutputUNet):
             all_mask_decoder_kwargs[i]["latent_variable_size"] = self.output_branches_specs[i]["out_channels"]
 
         # Build one Mask decoder per branch:
-        self.patch_models = nn.ModuleList([
+        self.mask_decoders = nn.ModuleList([
             MaskDecoder(**kwgs) for kwgs in all_mask_decoder_kwargs
         ])
 
@@ -39,7 +43,6 @@ class MaskDecoder(nn.Module):
                  crop_slice_prediction=None,
                  mask_dws_fact=(1, 1, 1),
                  pred_dws_fact=(1, 1, 1),
-                 core_shape=(1, 1, 1),
                  sample_strides=(1, 1, 1),
                  limit_nb_decoded_masks_to=None,
                  max_random_crop=(0, 0, 0)
@@ -63,9 +66,6 @@ class MaskDecoder(nn.Module):
         :param pred_dws_fact:
                      Downscaling factor of the predicted embedding (with respect to the given target!)
                      (This in most of the cases is 1)
-
-        :param core_shape:
-                    Exclude a patch from training if the center does contain more than one GT label (this let us avoid or treat boundaries differently)
 
         :param sample_strides: (list of tuples)
                      How often we should sample embedding vectors (to be decoded) in the output tensor from the UNet
@@ -111,14 +111,13 @@ class MaskDecoder(nn.Module):
         self.final_activation = nn.Sigmoid()
 
         self.mask_shape = mask_shape
+        assert all(i % 2 == 1 for i in mask_shape), "Mask shape should be odd"
 
         # Validate the rest of the parameters (only used during training):
         mask_dws_fact = tuple(mask_dws_fact) if isinstance(mask_dws_fact, list) else mask_dws_fact
         assert isinstance(mask_dws_fact, tuple)
         pred_dws_fact = tuple(pred_dws_fact) if isinstance(pred_dws_fact, list) else pred_dws_fact
         assert isinstance(pred_dws_fact, tuple)
-        core_shape = tuple(core_shape) if isinstance(core_shape, list) else core_shape
-        assert isinstance(core_shape, tuple)
         sample_strides = tuple(sample_strides) if isinstance(sample_strides, list) else sample_strides
         assert isinstance(sample_strides, tuple)
         max_random_crop = tuple(max_random_crop) if isinstance(max_random_crop, list) else max_random_crop
@@ -128,7 +127,6 @@ class MaskDecoder(nn.Module):
         self.crop_slice_prediction = crop_slice_prediction
         self.mask_dws_fact = mask_dws_fact
         self.pred_dws_fact = pred_dws_fact
-        self.core_shape = core_shape
         self.sample_strides = sample_strides
         self.limit_nb_decoded_masks_to = limit_nb_decoded_masks_to
         self.max_random_crop = max_random_crop
