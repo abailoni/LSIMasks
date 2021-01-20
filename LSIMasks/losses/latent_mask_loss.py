@@ -82,9 +82,6 @@ class LatentMaskLoss(nn.Module):
 
         nb_inputs = mdl.number_multiscale_inputs
 
-        # print([(pred.shape[-3], pred.shape[-2], pred.shape[-1]) for pred in all_predictions])
-        # print([(targ.shape[-3], targ.shape[-2], targ.shape[-1]) for targ in target])
-
         # Plot some patches with the raw:
         if self.model.return_input:
             raw_inputs = all_predictions[-nb_inputs:]

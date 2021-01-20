@@ -1,4 +1,9 @@
+import os
 
+try:
+    import pathutils
+except ImportError:
+    pathutils = None
 
 def auto_crop_tensor_to_shape(to_be_cropped, target_tensor_shape, return_slice=False,
                               ignore_channel_and_batch_dims=True):
@@ -18,3 +23,17 @@ def auto_crop_tensor_to_shape(to_be_cropped, target_tensor_shape, return_slice=F
         return crop_slice
     else:
         return to_be_cropped[crop_slice]
+
+
+def change_paths_config_file(template_path, dataset_main_dir=None):
+    output_path = template_path.replace(".yml", "_temp.yml")
+    path_placeholder = "$DATA_HOMEDIR\/"
+    if dataset_main_dir is None:
+        assert pathutils is not None, "pathutils module is required to get the main home folder"
+        dataset_main_dir = pathutils.get_home_dir()
+    real_home_path = dataset_main_dir.replace("/", "\/")
+    cmd_string = "sed 's/{}/{}/g' {} > {}".format(path_placeholder, real_home_path,
+                                                  template_path,
+                                                  output_path)
+    os.system(cmd_string)
+    return output_path

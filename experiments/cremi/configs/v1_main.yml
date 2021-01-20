@@ -58,11 +58,11 @@ loaders:
           downsampling_ratio: [1, 1, 1]
         volume_config:
           artifacts:
-            path: '$HCI_HOME/datasets/cremi/constantin_data/sample_ABC_padded_20160501.defects.hdf'
+            path: '$DATA_HOMEDIR/datasets/cremi/constantin_data/sample_ABC_padded_20160501.defects.hdf'
             path_in_h5_dataset: 'defect_sections/raw_2x'
             dtype: float32
           alpha_mask:
-            path: '$HCI_HOME/datasets/cremi/constantin_data/sample_ABC_padded_20160501.defects.hdf'
+            path: '$DATA_HOMEDIR/datasets/cremi/constantin_data/sample_ABC_padded_20160501.defects.hdf'
             path_in_h5_dataset: 'defect_sections/mask_2x'
         master_config:
           elastic_transform:
@@ -169,9 +169,9 @@ loaders:
       # Raw data
       raw:
         path:
-          A: '$HCI_HOME/datasets/new_cremi/sampleA.h5'
-          B: '$HCI_HOME/datasets/new_cremi/sampleB.h5'
-          C: '$HCI_HOME/datasets/new_cremi/sampleC.h5'
+          A: '$DATA_HOMEDIR/training_data/sampleA.h5'
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
         path_in_file: 'volumes/raw_2x'
         dtype: float32
         sigma: 0.025
@@ -182,9 +182,9 @@ loaders:
       # Segmentation
       segmentation:
         path:
-          A: '$HCI_HOME/datasets/new_cremi/sampleA.h5'
-          B: '$HCI_HOME/datasets/new_cremi/sampleB.h5'
-          C: '$HCI_HOME/datasets/new_cremi/sampleC.h5'
+          A: '$DATA_HOMEDIR/training_data/sampleA.h5'
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
         path_in_file: 'volumes/labels/neuron_ids_fixed_2x'
         dtype: int32
         padding_mode: "constant"
@@ -195,9 +195,9 @@ loaders:
 #          reset_to: [-1, -2]
       extra_masks:
         path:
-          A: '$HCI_HOME/datasets/new_cremi/sampleA.h5'
-          B: '$HCI_HOME/datasets/new_cremi/sampleB.h5'
-          C: '$HCI_HOME/datasets/new_cremi/sampleC.h5'
+          A: '$DATA_HOMEDIR/training_data/sampleA.h5'
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
         path_in_file: 'volumes/labels/various_masks_noDefects_2x'
         dtype: int32
         padding_mode: "constant"
@@ -230,8 +230,8 @@ loaders:
     volume_config:
       raw:
         path:
-          B: '$HCI_HOME/datasets/new_cremi/sampleB.h5'
-          C: '$HCI_HOME/datasets/new_cremi/sampleC.h5'
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
         path_in_file: 'volumes/raw_2x'
         dtype: float32
 #        sigma: 0.025
@@ -239,16 +239,16 @@ loaders:
         padding: *dataset_padding
       segmentation:
         path:
-          B: '$HCI_HOME/datasets/new_cremi/sampleB.h5'
-          C: '$HCI_HOME/datasets/new_cremi/sampleC.h5'
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
         path_in_file: 'volumes/labels/neuron_ids_fixed_2x'
         dtype: int32
         padding_mode: "constant"
         padding: *dataset_padding
       extra_masks:
         path:
-          B: '$HCI_HOME/datasets/new_cremi/sampleB.h5'
-          C: '$HCI_HOME/datasets/new_cremi/sampleC.h5'
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
         path_in_file: 'volumes/labels/various_masks_noDefects_2x'
         dtype: int32
         padding_mode: "constant"
@@ -297,15 +297,12 @@ loaders:
         1: *dataset_padding
         2: *dataset_padding
       path:
-        A+: '$HCI_HOME/datasets/CREMI/official_test_samples/cropped_aligned_samples/sampleA+_cropped_no_crop.h5'
-        B+: '$HCI_HOME/datasets/CREMI/official_test_samples/cropped_aligned_samples/sampleB+_cropped_no_crop.h5'
-        C+: '$HCI_HOME/datasets/CREMI/official_test_samples/cropped_aligned_samples/sampleC+_cropped_no_crop.h5'
-        A: '$HCI_HOME/datasets/new_cremi/sampleA.h5'
-        B: '$HCI_HOME/datasets/new_cremi/sampleB.h5'
-        C: '$HCI_HOME/datasets/new_cremi/sampleC.h5'
-        0: '$HCI_HOME/datasets/new_cremi/sample0.h5'
-        1: '$HCI_HOME/datasets/new_cremi/sample1.h5'
-        2: '$HCI_HOME/datasets/new_cremi/sample2.h5'
+        A+: '$DATA_HOMEDIR/test_data/sampleA+_cropped_no_crop.h5'
+        B+: '$DATA_HOMEDIR/test_data/sampleB+_cropped_no_crop.h5'
+        C+: '$DATA_HOMEDIR/test_data/sampleC+_cropped_no_crop.h5'
+        A: '$DATA_HOMEDIR/training_data/sampleA.h5'
+        B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+        C: '$DATA_HOMEDIR/training_data/sampleC.h5'
       path_in_file: 'volumes/raw_2x'
       dtype: float32
 

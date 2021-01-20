@@ -1,5 +1,4 @@
-# TODO: get rid of this and paths
-from pathutils import get_home_dir, get_trendytukan_drive_dir, change_paths_config_file
+from LSIMasks.utils.various import change_paths_config_file
 
 from speedrun import BaseExperiment, TensorboardMixin, InfernoMixin, FirelightLogger
 from speedrun.log_anywhere import register_logger, log_image, log_scalar
@@ -166,10 +165,18 @@ if __name__ == '__main__':
     config_path = os.path.join(source_path, 'configs')
     experiments_path = os.path.join(source_path, 'runs')
 
+    # Read path of the dataset:
+    assert "--DATA_HOMEDIR" in sys.argv, "Script parameter DATA_HOMEDIR is missing"
+    idx = sys.argv.index('--DATA_HOMEDIR')
+    DATA_HOMEDIR = sys.argv.pop(idx+1)
+    DATA_HOMEDIR = DATA_HOMEDIR if DATA_HOMEDIR.endswith('/') else DATA_HOMEDIR + '/'
+    sys.argv.pop(idx)
+
     # Update HCI_HOME paths:
     for i, key in enumerate(sys.argv):
-        if "HCI__HOME" in sys.argv[i]:
-            sys.argv[i] = sys.argv[i].replace("HCI__HOME/", get_home_dir())
+        if "DATA_HOMEDIR" in sys.argv[i]:
+            sys.argv[i] = sys.argv[i].replace("DATA_HOMEDIR/", DATA_HOMEDIR)
+
 
     # Update RUNS paths:
     for i, key in enumerate(sys.argv):
@@ -181,17 +188,17 @@ if __name__ == '__main__':
     if '--inherit' in sys.argv:
         i = sys.argv.index('--inherit') + 1
         if sys.argv[i].endswith(('.yml', '.yaml')):
-            sys.argv[i] = change_paths_config_file(os.path.join(config_path, sys.argv[i]))
+            sys.argv[i] = change_paths_config_file(os.path.join(config_path, sys.argv[i]), dataset_main_dir=DATA_HOMEDIR)
         else:
             sys.argv[i] = os.path.join(experiments_path, sys.argv[i])
     if '--update' in sys.argv:
         i = sys.argv.index('--update') + 1
-        sys.argv[i] = change_paths_config_file(os.path.join(config_path, sys.argv[i]))
+        sys.argv[i] = change_paths_config_file(os.path.join(config_path, sys.argv[i]), dataset_main_dir=DATA_HOMEDIR)
     i = 0
     while True:
         if f'--update{i}' in sys.argv:
             ind = sys.argv.index(f'--update{i}') + 1
-            sys.argv[ind] = change_paths_config_file(os.path.join(config_path, sys.argv[ind]))
+            sys.argv[ind] = change_paths_config_file(os.path.join(config_path, sys.argv[ind]), dataset_main_dir=DATA_HOMEDIR)
             i += 1
         else:
             break
