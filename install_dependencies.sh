@@ -37,7 +37,7 @@ cd ..
 
 git clone https://github.com/abailoni/neurofire.git
 cd ./neurofire
-python setup.py install
+python setup.py develop
 cd ..
 
 git clone https://github.com/imagirom/ConfNets.git
@@ -54,7 +54,7 @@ cd ..
 
 git clone https://github.com/abailoni/segmfriends.git
 cd ./segmfriends
-python setup.py install
+python setup.py develop
 cd ..
 
 # Install package:
