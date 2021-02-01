@@ -9,8 +9,8 @@ legacy_experiment: True
 
 shortcuts:
   z_size: &z_size 6
-  xy_size: &xy_size 272
-  xy_size_precrop: &xy_size_precrop 302
+  xy_size: &xy_size 200 # 272
+  xy_size_precrop: &xy_size_precrop 240 # 302
   size_encoded_latent_mask: &size_encoded_latent_mask 32
 
 device: cuda
@@ -58,11 +58,11 @@ loaders:
           downsampling_ratio: [1, 1, 1]
         volume_config:
           artifacts:
-            path: '$DATA_HOMEDIR/datasets/cremi/constantin_data/sample_ABC_padded_20160501.defects.hdf'
+            path: '$DATA_HOMEDIR/training_data/sample_ABC_padded_20160501.defects.hdf'
             path_in_h5_dataset: 'defect_sections/raw_2x'
             dtype: float32
           alpha_mask:
-            path: '$DATA_HOMEDIR/datasets/cremi/constantin_data/sample_ABC_padded_20160501.defects.hdf'
+            path: '$DATA_HOMEDIR/training_data/sample_ABC_padded_20160501.defects.hdf'
             path_in_h5_dataset: 'defect_sections/mask_2x'
         master_config:
           elastic_transform:
@@ -497,35 +497,35 @@ firelight:
 #            input: ['prediction', index: 2]
 
 
-  glia_mask:
-    ImageGridVisualizer:
-
-      input_mapping:
-        global: [B: ":", D: "2:7"] # the mapping specified in 'global' is applied to all keys
-#        global: [B: ":", D: ":"] # the mapping specified in 'global' is applied to all keys
-
-      pad_width: 1  # width of the border between images in pixels
-      pad_value: .2  # intensity of the border pixels
-      upsampling_factor: 2  # the whole grid is upsampled by this factor
-
-      row_specs: ['H', 'S', 'B', 'V']
-      column_specs: ['W', 'C', 'D', ]
-
-      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
-      visualizers:
-
-        #        # visualize raw input
+#  glia_mask:
+#    ImageGridVisualizer:
+#
+#      input_mapping:
+#        global: [B: ":", D: "2:7"] # the mapping specified in 'global' is applied to all keys
+##        global: [B: ":", D: ":"] # the mapping specified in 'global' is applied to all keys
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'B', 'V']
+#      column_specs: ['W', 'C', 'D', ]
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        #        # visualize raw input
+##        - IdentityVisualizer:
+##            input: ['inputs', index: 0, W: "8:-8", H: "8:-8"]
+##            cmap: gray
 #        - IdentityVisualizer:
-#            input: ['inputs', index: 0, W: "8:-8", H: "8:-8"]
+#            input: ['glia_target_d0', C: 0]
 #            cmap: gray
-        - IdentityVisualizer:
-            input: ['glia_target_d0', C: 0]
-            cmap: gray
-            value_range: [0,1]
-        - IdentityVisualizer:
-            input: ['glia_pred_d0', C: 0]
-            cmap: gray
-            value_range: [0,1]
+#            value_range: [0,1]
+#        - IdentityVisualizer:
+#            input: ['glia_pred_d0', C: 0]
+#            cmap: gray
+#            value_range: [0,1]
 
 
 
@@ -656,146 +656,146 @@ firelight:
 #            input: ['encoder_layer_depth_base']
 
 
-  rdmPatches_l0:
-    ImageGridVisualizer:
-      input_mapping:
-        global: [B: ":", D: ":"]
-
-      pad_width: 1  # width of the border between images in pixels
-      pad_value: .2  # intensity of the border pixels
-      upsampling_factor: 5  # the whole grid is upsampled by this factor
-
-      row_specs: ['H', 'S', 'D', 'C', 'B']
-      column_specs: ['W', 'V']
-
-      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
-      visualizers:
-
-        - OverlayVisualizer:
-            visualizers:
-              - SegmentationVisualizer:
-                  input: ['gt_label_patch_l0']
-                  background_label: 0
-                  opacity: 0.5 # Make output only partially opaque.
-              - IdentityVisualizer:
-                  input: ['raw_patch_l0']
-                  cmap: gray
-#        - IdentityVisualizer:
-#            input: ['raw_patch_l0']
-#            cmap: gray
-        - IdentityVisualizer:
-            input: ['gt_mask_patch_l0']
-            cmap: gray
-            value_range: [0,1]
-        - IdentityVisualizer:
-            input: ['pred_patch_l0']
-            cmap: gray
-            value_range: [0,1]
-
-  rdmPatches_l1:
-    ImageGridVisualizer:
-      input_mapping:
-        global: [B: ":", D: ":"]
-
-      pad_width: 1  # width of the border between images in pixels
-      pad_value: .2  # intensity of the border pixels
-      upsampling_factor: 1  # the whole grid is upsampled by this factor
-
-      row_specs: ['H', 'S', 'D', 'C', 'B']
-      column_specs: ['W', 'V']
-
-      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
-      visualizers:
-
-        - OverlayVisualizer:
-            visualizers:
-              - SegmentationVisualizer:
-                  input: ['gt_label_patch_l1']
-                  background_label: 0
-                  opacity: 0.5 # Make output only partially opaque.
-              - IdentityVisualizer:
-                  input: ['raw_patch_l1']
-                  cmap: gray
-#        - IdentityVisualizer:
-#            input: ['raw_patch_l1']
-#            cmap: gray
-        - IdentityVisualizer:
-            input: ['gt_mask_patch_l1']
-            cmap: gray
-            value_range: [0,1]
-        - IdentityVisualizer:
-            input: ['pred_patch_l1']
-            cmap: gray
-            value_range: [0,1]
-
-  rdmPatches_l2:
-    ImageGridVisualizer:
-      input_mapping:
-        global: [B: ":", D: ":"]
-
-      pad_width: 1  # width of the border between images in pixels
-      pad_value: .2  # intensity of the border pixels
-      upsampling_factor: 2  # the whole grid is upsampled by this factor
-
-      row_specs: ['H', 'S', 'D', 'C', 'B']
-      column_specs: ['W', 'V']
-
-      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
-      visualizers:
-
-        - OverlayVisualizer:
-            visualizers:
-              - SegmentationVisualizer:
-                  input: ['gt_label_patch_l2']
-                  background_label: 0
-                  opacity: 0.5 # Make output only partially opaque.
-              - IdentityVisualizer:
-                  input: ['raw_patch_l2']
-                  cmap: gray
-#        - IdentityVisualizer:
-#            input: ['raw_patch_l2']
-#            cmap: gray
-        - IdentityVisualizer:
-            input: ['gt_mask_patch_l2']
-            cmap: gray
-            value_range: [0,1]
-        - IdentityVisualizer:
-            input: ['pred_patch_l2']
-            cmap: gray
-            value_range: [0,1]
+#  rdmPatches_l0:
+#    ImageGridVisualizer:
+#      input_mapping:
+#        global: [B: ":", D: ":"]
 #
-  rdmPatches_l3:
-    ImageGridVisualizer:
-      input_mapping:
-        global: [B: ":", D: ":"]
-
-      pad_width: 1  # width of the border between images in pixels
-      pad_value: .2  # intensity of the border pixels
-      upsampling_factor: 2  # the whole grid is upsampled by this factor
-
-      row_specs: ['H', 'S', 'D', 'C', 'B']
-      column_specs: ['W', 'V']
-
-      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
-      visualizers:
-
-        - OverlayVisualizer:
-            visualizers:
-              - SegmentationVisualizer:
-                  input: ['gt_label_patch_l3']
-                  background_label: 0
-                  opacity: 0.5 # Make output only partially opaque.
-              - IdentityVisualizer:
-                  input: ['raw_patch_l3']
-                  cmap: gray
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 5  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'D', 'C', 'B']
+#      column_specs: ['W', 'V']
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        - OverlayVisualizer:
+#            visualizers:
+#              - SegmentationVisualizer:
+#                  input: ['gt_label_patch_l0']
+#                  background_label: 0
+#                  opacity: 0.5 # Make output only partially opaque.
+#              - IdentityVisualizer:
+#                  input: ['raw_patch_l0']
+#                  cmap: gray
+##        - IdentityVisualizer:
+##            input: ['raw_patch_l0']
+##            cmap: gray
 #        - IdentityVisualizer:
-#            input: ['raw_patch_l3']
+#            input: ['gt_mask_patch_l0']
 #            cmap: gray
-        - IdentityVisualizer:
-            input: ['gt_mask_patch_l3']
-            cmap: gray
-            value_range: [0,1]
-        - IdentityVisualizer:
-            input: ['pred_patch_l3']
-            cmap: gray
-            value_range: [0,1]
+#            value_range: [0,1]
+#        - IdentityVisualizer:
+#            input: ['pred_patch_l0']
+#            cmap: gray
+#            value_range: [0,1]
+#
+#  rdmPatches_l1:
+#    ImageGridVisualizer:
+#      input_mapping:
+#        global: [B: ":", D: ":"]
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 1  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'D', 'C', 'B']
+#      column_specs: ['W', 'V']
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        - OverlayVisualizer:
+#            visualizers:
+#              - SegmentationVisualizer:
+#                  input: ['gt_label_patch_l1']
+#                  background_label: 0
+#                  opacity: 0.5 # Make output only partially opaque.
+#              - IdentityVisualizer:
+#                  input: ['raw_patch_l1']
+#                  cmap: gray
+##        - IdentityVisualizer:
+##            input: ['raw_patch_l1']
+##            cmap: gray
+#        - IdentityVisualizer:
+#            input: ['gt_mask_patch_l1']
+#            cmap: gray
+#            value_range: [0,1]
+#        - IdentityVisualizer:
+#            input: ['pred_patch_l1']
+#            cmap: gray
+#            value_range: [0,1]
+#
+#  rdmPatches_l2:
+#    ImageGridVisualizer:
+#      input_mapping:
+#        global: [B: ":", D: ":"]
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'D', 'C', 'B']
+#      column_specs: ['W', 'V']
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        - OverlayVisualizer:
+#            visualizers:
+#              - SegmentationVisualizer:
+#                  input: ['gt_label_patch_l2']
+#                  background_label: 0
+#                  opacity: 0.5 # Make output only partially opaque.
+#              - IdentityVisualizer:
+#                  input: ['raw_patch_l2']
+#                  cmap: gray
+##        - IdentityVisualizer:
+##            input: ['raw_patch_l2']
+##            cmap: gray
+#        - IdentityVisualizer:
+#            input: ['gt_mask_patch_l2']
+#            cmap: gray
+#            value_range: [0,1]
+#        - IdentityVisualizer:
+#            input: ['pred_patch_l2']
+#            cmap: gray
+#            value_range: [0,1]
+##
+#  rdmPatches_l3:
+#    ImageGridVisualizer:
+#      input_mapping:
+#        global: [B: ":", D: ":"]
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'D', 'C', 'B']
+#      column_specs: ['W', 'V']
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        - OverlayVisualizer:
+#            visualizers:
+#              - SegmentationVisualizer:
+#                  input: ['gt_label_patch_l3']
+#                  background_label: 0
+#                  opacity: 0.5 # Make output only partially opaque.
+#              - IdentityVisualizer:
+#                  input: ['raw_patch_l3']
+#                  cmap: gray
+##        - IdentityVisualizer:
+##            input: ['raw_patch_l3']
+##            cmap: gray
+#        - IdentityVisualizer:
+#            input: ['gt_mask_patch_l3']
+#            cmap: gray
+#            value_range: [0,1]
+#        - IdentityVisualizer:
+#            input: ['pred_patch_l3']
+#            cmap: gray
+#            value_range: [0,1]

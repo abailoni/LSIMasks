@@ -17,7 +17,6 @@ from inferno.extensions.criteria.set_similarity_measures import SorensenDiceLoss
 from inferno.trainers.callbacks import Callback
 from inferno.io.transform.base import Compose
 
-from embeddingutils.loss import WeightedLoss, SumLoss
 from segmfriends.utils.config_utils import recursive_dict_update
 
 from shutil import copyfile
