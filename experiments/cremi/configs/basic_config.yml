@@ -329,7 +329,7 @@ model:
     res_blocks_specs_decoder: [[True], [True], [True], [True]]
     encoder_fmaps: [32, 64, 128, 256]
     decoder_fmaps: [48, 64, 128, 256]
-    return_input: True
+    return_input: False
     number_multiscale_inputs: 1
     in_channels: 1
     scale_factor: [1, 2, 2]

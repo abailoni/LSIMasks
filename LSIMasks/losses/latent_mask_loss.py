@@ -60,7 +60,8 @@ class LatentMaskLoss(nn.Module):
                                                                           **sparse_affs_loss_kwargs)
 
     def forward(self, all_predictions, target):
-
+        target = [target] if not isinstance(target, list) else target
+        all_predictions = [all_predictions] if not isinstance(all_predictions, list) else all_predictions
 
         mdl = self.model
 
@@ -89,18 +90,15 @@ class LatentMaskLoss(nn.Module):
             mask_dec = self.model.mask_decoders[mask_dec_indx]
             pred = all_predictions[mask_dec_indx]
 
-            if isinstance(target, list):
-                gt_segm = target[mask_dec.target_index]
-            else:
-                assert mask_dec.target_index == 0
-                gt_segm = target
+            gt_segm = target[mask_dec.target_index]
 
             # Collect options from config:
             mask_shape = mask_dec.mask_shape
             mask_dws_fact = mask_dec.mask_dws_fact
             # Strides: how frequently we sample pixels from the embedding tensor:
             sample_strides = mask_dec.sample_strides
-            pred_dws_fact = mask_dec.pred_dws_fact
+            pred_dws_fact = mask_dec.pred_dws_fact # Downscaling factor of the mask/patch
+            # Crop slice to be applied to the predicted embeddings:
             crop_slice_prediction = mask_dec.crop_slice_prediction
             limit_nb_decoded_masks_to = mask_dec.limit_nb_decoded_masks_to
 
