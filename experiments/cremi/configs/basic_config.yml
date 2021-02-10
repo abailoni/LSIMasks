@@ -95,24 +95,24 @@ loaders:
 #      crop_after_target:
 #        crop_left: [0, 30, 30]
 #        crop_right: [0, 30, 30]
-      downscale_and_crop:
-        # Inputs:
-        - {ds_factor: [1, 1, 1],
-          crop_factor: [1, 1, 1],
-          apply_to: 0}
-#        - {ds_factor: [1, 2, 2],
-#          crop_factor: [1, 2, 2],
+#      downscale_and_crop:
+#        # Inputs:
+#        - {ds_factor: [1, 1, 1],
+#          crop_factor: [1, 1, 1],
 #          apply_to: 0}
-        # Targets:
-        - {ds_factor: [1, 1, 1],
-          crop_factor: [1, 1, 1],
-          apply_to: 1}
-        - {ds_factor: [1, 2, 2],
-          crop_factor: [1, 1, 1],
-          apply_to: 1}
-        - {ds_factor: [1, 4, 4],
-          crop_factor: [1, 1, 1],
-          apply_to: 1}
+##        - {ds_factor: [1, 2, 2],
+##          crop_factor: [1, 2, 2],
+##          apply_to: 0}
+#        # Targets:
+#        - {ds_factor: [1, 1, 1],
+#          crop_factor: [1, 1, 1],
+#          apply_to: 1}
+#        - {ds_factor: [1, 2, 2],
+#          crop_factor: [1, 1, 1],
+#          apply_to: 1}
+#        - {ds_factor: [1, 4, 4],
+#          crop_factor: [1, 1, 1],
+#          apply_to: 1}
 
 
 
@@ -347,52 +347,19 @@ model:
         nb_norm_groups: 16
         out_channels: *size_encoded_latent_mask
       0: {depth: 0, normalization: GroupNorm}
-      1: {depth: 0, normalization: GroupNorm}
-      2: {depth: 1, normalization: GroupNorm}
-      3: {depth: 2, normalization: GroupNorm}
     mask_decoders_kwargs:
-      global:
+      0:
         feature_maps: 16
         crop_slice_prediction: "2:-2,:,:" # Pre-crop part of embeddings prediction-tensor to avoid training on borders
-      0:
         target_index: 0 # Index of the associated target tensor loaded in the batch-list
         mask_shape: [5,7,7]
-        mask_dws_fact: [1, 1, 1] # Downscaling factor of the mask (with respect to the given target!)
+        mask_dws_fact: [1, 2, 2] # Downscaling factor of the mask (with respect to the given target!)
         pred_dws_fact: [1, 1, 1] # Downscaling factor of the predicted embedding With respect to the given target!
         sample_strides: # in the original resolution (of the target)
           - [2, 7, 7]
         limit_nb_decoded_masks_to: # 'factor', 'number'
           - [120, 'number']
         max_random_crop: [1, 7, 7] # in the donwscaled res
-      1:
-        target_index: 0
-        mask_shape: [5,7,7]
-        mask_dws_fact: [1, 4, 4]
-        pred_dws_fact: [1, 1, 1]
-        sample_strides:
-          - [2, 7, 7]
-        limit_nb_decoded_masks_to: # 'factor', 'number'
-          - [120, 'number']
-        max_random_crop: [1, 7, 7]
-      2:
-        target_index: 1
-        mask_shape: [5,7,7]
-        mask_dws_fact: [1, 2, 2]
-        pred_dws_fact: [1, 1, 1]
-        sample_strides:
-         - [2, 7, 7]
-        limit_nb_decoded_masks_to: [120, 'number'] # 'factor', 'number'
-        max_random_crop: [1, 4, 4]
-      3:
-        target_index: 2
-        mask_dws_fact: [1, 2, 2]
-        pred_dws_fact: [1, 1, 1]
-        mask_shape: [5,7,7]
-        sample_strides:
-         - [2, 7, 7]
-        limit_nb_decoded_masks_to: [90, 'number'] # 'factor', 'number'
-#            limit_nb_decoded_masks_to: [0.25, 'factor'] # 'factor', 'number'
-        max_random_crop: [1, 2, 2]
 
 trainer:
   max_epochs: 200 # basically infinite
@@ -402,12 +369,7 @@ trainer:
     loss_name: "LSIMasks.losses.latent_mask_loss.LatentMaskLoss"
     kwargs:
       loss_type: "Dice" # "MSE"
-      apply_checkerboard: False
-      glia_label: 1
-      boundary_label: 2
-      defected_label: 3
-      train_glia_mask: True
-      train_patches_on_glia: True
+#      boundary_label: 2
 
 
 
@@ -491,8 +453,8 @@ firelight:
             cmap: gray
         - PcaVisualizer:
             input: ['prediction', index: 0]
-        - PcaVisualizer:
-            input: ['prediction', index: 1]
+#        - PcaVisualizer:
+#            input: ['prediction', index: 1]
 #        - PcaVisualizer:
 #            input: ['prediction', index: 2]
 

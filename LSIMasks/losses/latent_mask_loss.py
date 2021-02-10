@@ -20,17 +20,12 @@ from .sparse_affinitiees_loss import MultiLevelSparseAffinityLoss
 
 
 class LatentMaskLoss(nn.Module):
-    def __init__(self, model, apply_checkerboard=False, loss_type="Dice",
+    def __init__(self,
+                 model,
+                 loss_type="Dice",
                  ignore_label=0,
-                 train_glia_mask=False,
                  boundary_label=None,
-                 glia_label=None,
-                 train_patches_on_glia=False,
-                 fix_bug_multiscale_patches=False,
-                 defected_label=None,
-                 IoU_loss_kwargs=None,
                  sparse_affs_loss_kwargs=None,
-                 indx_trained_patchNets=None,
                  model_kwargs=None, devices=(0, 1)):
         super(LatentMaskLoss, self).__init__()
         if loss_type == "Dice":
@@ -42,21 +37,8 @@ class LatentMaskLoss(nn.Module):
         else:
             raise ValueError
 
-        self.apply_checkerboard = apply_checkerboard
-        self.fix_bug_multiscale_patches = fix_bug_multiscale_patches
         self.ignore_label = ignore_label
         self.boundary_label = boundary_label
-        self.glia_label = glia_label
-        self.defected_label = defected_label
-        self.train_glia_mask = train_glia_mask
-        self.train_patches_on_glia = train_patches_on_glia
-        self.indx_trained_patchNets = indx_trained_patchNets
-        self.add_IoU_loss = False
-        if IoU_loss_kwargs is not None:
-            raise NotImplementedError()
-            # self.add_IoU_loss = True
-            # from .compute_IoU import IoULoss
-            # self.IoU_loss = IoULoss(model, model_kwargs=model_kwargs, devices=devices, **IoU_loss_kwargs)
 
         self.devices = devices
         # TODO: get rid of kwargs
@@ -78,12 +60,14 @@ class LatentMaskLoss(nn.Module):
                                                                           **sparse_affs_loss_kwargs)
 
     def forward(self, all_predictions, target):
+
+
         mdl = self.model
 
-        nb_inputs = mdl.number_multiscale_inputs
+        nb_inputs = mdl.number_multiscale_inputs # 1
 
         # Plot some patches with the raw:
-        if self.model.return_input:
+        if self.model.return_input: # False
             raw_inputs = all_predictions[-nb_inputs:]
             all_predictions = all_predictions[:-nb_inputs]
 
@@ -105,11 +89,16 @@ class LatentMaskLoss(nn.Module):
             mask_dec = self.model.mask_decoders[mask_dec_indx]
             pred = all_predictions[mask_dec_indx]
 
-            gt_segm = target[mask_dec.target_index]
+            if isinstance(target, list):
+                gt_segm = target[mask_dec.target_index]
+            else:
+                assert mask_dec.target_index == 0
+                gt_segm = target
 
             # Collect options from config:
             mask_shape = mask_dec.mask_shape
             mask_dws_fact = mask_dec.mask_dws_fact
+            # Strides: how frequently we sample pixels from the embedding tensor:
             sample_strides = mask_dec.sample_strides
             pred_dws_fact = mask_dec.pred_dws_fact
             crop_slice_prediction = mask_dec.crop_slice_prediction
@@ -136,68 +125,7 @@ class LatentMaskLoss(nn.Module):
             pred = pred[crop_slice_prediction]
             full_target_shape = gt_segm.shape[-3:]
 
-            # # # ----------------------------
-            # # # Plot some random patches with associated raw patch:
-            # # # ----------------------------
-            # if self.model.return_input and mask_dec_indx<5:
-            #     # raw = raw_inputs[kwargs["nb_target"]][crop_slice_targets]
-            #     # FIXME: raw is not correct for deeper ones
-            #     raw = raw_inputs[0][crop_slice_targets]
-            #     raw_to_plot, gt_labels_to_plot, gt_masks_to_plot, pred_emb_to_plot = [], [], [], []
-            #     for n in range(40):
-            #         # Select a random pixel and define sliding-window crop slices:
-            #         selected_coord = [np.random.randint(shp) for shp in pred.shape[2:]]
-            #         # selected_coord[0] = 4 # For plots, get always 4
-            #         full_patch_slice = (slice(None), slice(0,1)) + tuple(
-            #             slice(selected_coord[i], selected_coord[i] + real_shape_mask[i]) for i in range(len(selected_coord)))
-            #         emb_slice = (slice(None), slice(0,1)) + tuple(slice(selected_coord[i] + int(real_shape_mask[i] / 2),
-            #                                                             selected_coord[i] + int(
-            #                                                                 real_shape_mask[i] / 2) + 1) for i in
-            #                                                       range(len(selected_coord)))
-            #         pred_center_coord = [int(selected_coord[i] / pred_dws_fact[i]) for i in range(len(selected_coord))]
-            #         emb_slice_pred = (slice(None), slice(None)) + tuple(
-            #             slice(pred_center_coord[i], pred_center_coord[i] + 1)
-            #             for i in range(len(selected_coord)))
-            #
-            #         # Collect data for current sliding window:
-            #         center_label = gt_segm[emb_slice]
-            #         center_label_repeated = center_label.repeat(1, 1, *real_shape_mask)
-            #         gt_patch_labels = gt_segm[full_patch_slice]
-            #         gt_masks_to_plot.append(gt_patch_labels != center_label_repeated)
-            #         gt_labels_to_plot.append(gt_patch_labels)
-            #         # ignore_mask_patch = (gt_patch_labels == 0)
-            #         pred_emb_to_plot.append(pred[emb_slice_pred])
-            #
-            #         raw_to_plot.append(raw[full_patch_slice])
-            #
-            #     # Highlight center pixel:
-            #     raw_to_plot = torch.cat(raw_to_plot, dim=0)
-            #     center_pixel_coord = (slice(None), 0) + tuple(int(shp / 2) for shp in real_shape_mask)
-            #     raw_to_plot[center_pixel_coord] = raw_to_plot.min() - 1.
-            #
-            #     gt_labels_to_plot = torch.cat(gt_labels_to_plot, dim=0)
-            #     gt_masks_to_plot = torch.cat(gt_masks_to_plot, dim=0)
-            #     pred_emb_to_plot = torch.cat(pred_emb_to_plot, dim=0)
-            #
-            #     # Decode embeddings:
-            #     ptch_num = kwargs["patchNet_number"]
-            #     pred_patch_to_plot = data_parallel(self.model.patch_models[ptch_num], pred_emb_to_plot[:, :, 0, 0, 0], self.devices)
-            #
-            #     # Downscale and rescale targets:
-            #     down_sc_slice = (slice(None), slice(None)) + tuple(
-            #         slice(int(dws_fact / 2), None, dws_fact) for dws_fact in mask_dws_fact)
-            #     gt_masks_to_plot = torch.nn.functional.interpolate(gt_masks_to_plot[down_sc_slice].float(), scale_factor=tuple(mask_dws_fact))
-            #     pred_patch_to_plot = torch.nn.functional.interpolate(pred_patch_to_plot,
-            #                                                          scale_factor=tuple(mask_dws_fact))
-            #
-            #     gt_masks_to_plot = 1. - gt_masks_to_plot
-            #     if mask_dws_fact[1] <= 6:
-            #         pred_patch_to_plot = 1. - pred_patch_to_plot
-            #
-            #     log_image("raw_patch_l{}".format(mask_dec_indx), raw_to_plot)
-            #     log_image("gt_label_patch_l{}".format(mask_dec_indx), gt_labels_to_plot)
-            #     log_image("gt_mask_patch_l{}".format(mask_dec_indx), gt_masks_to_plot)
-            #     log_image("pred_patch_l{}".format(mask_dec_indx), pred_patch_to_plot)
+
 
             # # ----------------------------
             # # Patch-Loss:
@@ -306,11 +234,13 @@ class LatentMaskLoss(nn.Module):
                 selected_embeddings = selected_embeddings[:, :, 0, 0, 0]
 
                 # ----------------------------
-                # Decode the actual predicted using the decoder models:
+                # Decode the actual predicted embeddings using the decoder models:
                 # ----------------------------
                 decoded_masks = data_parallel(mask_dec, selected_embeddings, self.devices)
                 # print(expanded_patches.shape)
                 assert decoded_masks.shape[1] == 1, "MaskDecoder should output only single-channel masks!"
+
+                # TODO: Charles adapt to support multiple masks
 
                 # Some logs:
                 if nb_stride == 0:
@@ -318,6 +248,13 @@ class LatentMaskLoss(nn.Module):
                     log_image("ptc_pred_l{}".format(mask_dec_indx), decoded_masks)
                     # log_image("ptc_ign_l{}".format(nb_patch_net), patch_ignore_masks)
                     log_scalar("avg_targets_l{}".format(mask_dec_indx), target_me_masks.float().mean())
+
+
+                # TODO: Charles
+                #   - Apply Soresen Dice loss to each predicted mask
+                #   - Find predicted mask with minimum loss
+                #   - Only pass loss to the best predicted mask
+
 
                 # ----------------------------
                 # Apply ignore mask and compute loss:

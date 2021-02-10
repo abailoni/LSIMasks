@@ -1,0 +1,796 @@
+# TODO:
+#       - clean comments and shorten
+# - get datasets from repo folder
+
+global:
+  offsets: null
+
+legacy_experiment: True
+
+shortcuts:
+  z_size: &z_size 6
+  xy_size: &xy_size 200 # 272
+  xy_size_precrop: &xy_size_precrop 240 # 302
+  size_encoded_latent_mask: &size_encoded_latent_mask 32
+
+device: cuda
+
+loaders:
+  general:
+    volume_config:
+      rejection_threshold: 0.20
+      segmentation:
+        affinity_config:
+          retain_mask: False # This keep a mask of the valid affinities (not involving the ignore-label)
+          retain_segmentation: True # This keeps the label image in the inputs
+          ignore_label: 0
+
+    defect_augmentation_config:
+      keep_track_of:
+#          - "artifacts"
+        - "missing_slice"
+      min_distance_between_defects: 2
+      nb_contiguous_artifacts: 2
+      ignore_slice_list:
+        B:
+          - 23 # B
+          - 24 # B
+          - 52 # B
+          - 53 # B
+        C:
+          - 22 # C
+          - 82 # C
+          - 94 # C
+      p_missing_slice: 0.006 #0.006
+      p_low_contrast: 0.000
+      p_deformed_slice: 0.000
+      p_artifact_source: 0.003 # 0.006
+      deformation_mode: 'compress'
+      deformation_strength: 16
+      artifact_source:
+        min_masking_ratio: .5
+        slicing_config:
+          window_size:
+            - 1
+            - *xy_size_precrop
+            - *xy_size_precrop
+          stride: [1, 300, 300]
+          downsampling_ratio: [1, 1, 1]
+        volume_config:
+          artifacts:
+            path: '$DATA_HOMEDIR/training_data/sample_ABC_padded_20160501.defects.hdf'
+            path_in_h5_dataset: 'defect_sections/raw_2x'
+            dtype: float32
+          alpha_mask:
+            path: '$DATA_HOMEDIR/training_data/sample_ABC_padded_20160501.defects.hdf'
+            path_in_h5_dataset: 'defect_sections/mask_2x'
+        master_config:
+          elastic_transform:
+            alpha: 2000.
+            sigma: 50.
+
+    # Configuration for the master dataset.
+    master_config:
+      # We might need order 0 interpolation if we have segmentation in there somewhere.
+      elastic_transform:
+        apply: False
+        alpha: 2000.
+        sigma: 50.
+        order: 0
+      random_slides:
+        shape_after_slide:
+          - *xy_size
+          - *xy_size
+#        max_misalign: [30, 30]   #change to x, y of window size
+        shift_vs_slide_proba: 0.
+        apply_proba: 0.5 # 0.2
+        # Here we make sure that shifting (only one slice) does not change the GT:
+        apply_to: [0]
+#        dont_slide_defected_slices: False # Apply slide in any case
+
+      random_flip: True
+      defects_label: 3
+      ignore_label: 0
+
+#      crop_after_target:
+#        crop_left: [0, 30, 30]
+#        crop_right: [0, 30, 30]
+      downscale_and_crop:
+        # Inputs:
+        - {ds_factor: [1, 1, 1],
+          crop_factor: [1, 1, 1],
+          apply_to: 0}
+#        - {ds_factor: [1, 2, 2],
+#          crop_factor: [1, 2, 2],
+#          apply_to: 0}
+        # Targets:
+        - {ds_factor: [1, 1, 1],
+          crop_factor: [1, 1, 1],
+          apply_to: 1}
+        - {ds_factor: [1, 2, 2],
+          crop_factor: [1, 1, 1],
+          apply_to: 1}
+        - {ds_factor: [1, 4, 4],
+          crop_factor: [1, 1, 1],
+          apply_to: 1}
+
+
+
+    # Specify configuration for the loader
+    loader_config:
+      # Number of processes to use for loading data. Set to (say) 10 if you wish to
+      # use 10 CPU cores, or to 0 if you wish to use the same process for training and
+      # data-loading (generally not recommended).
+      batch_size: 1
+      num_workers: 0
+      drop_last: True
+      pin_memory: False
+      shuffle: True
+
+
+
+  train:
+    names:
+      - A
+      - B
+      - C
+
+    # Specify how the data needs to be sliced before feeding to the network.
+    # We use a 3D sliding window over the dataset to extract patches, which
+    # are then fed to the network as batches.
+    slicing_config:
+      # Sliding window size
+      window_size:
+        A:
+          - *z_size
+          - *xy_size_precrop
+          - *xy_size_precrop
+        B:
+          - *z_size
+          - *xy_size_precrop
+          - *xy_size_precrop
+        C:
+          - *z_size
+          - *xy_size_precrop
+          - *xy_size_precrop
+      # Sliding window stride
+      stride:
+        A: &stride [3, 180, 180]
+        B: *stride
+        C: *stride
+      # Data slice to iterate over.
+      data_slice:
+        A: ':, :, :'
+        B: ':, :, :'
+        C: ':70, :, :'
+
+    # Specify paths to volumes
+    volume_config:
+      # Raw data
+      raw:
+        path:
+          A: '$DATA_HOMEDIR/training_data/sampleA.h5'
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
+        path_in_file: 'volumes/raw_2x'
+        dtype: float32
+        sigma: 0.025
+        padding_mode: "reflect"
+        padding: &dataset_padding [[0,0], [50,50], [50,50]]
+#        padding: &dataset_padding [[0,0], [0,0], [0,0]]
+
+      # Segmentation
+      segmentation:
+        path:
+          A: '$DATA_HOMEDIR/training_data/sampleA.h5'
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
+        path_in_file: 'volumes/labels/neuron_ids_fixed_2x'
+        dtype: int32
+        padding_mode: "constant"
+        padding: *dataset_padding
+#        label_volume: False
+#        preserved_label:
+#          label: [2147483647, 2147483646]
+#          reset_to: [-1, -2]
+      extra_masks:
+        path:
+          A: '$DATA_HOMEDIR/training_data/sampleA.h5'
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
+        path_in_file: 'volumes/labels/various_masks_noDefects_2x'
+        dtype: int32
+        padding_mode: "constant"
+        padding: *dataset_padding
+        label_volume: False
+
+
+  val:
+    names:
+#      - B
+      - C
+
+    slicing_config:
+      window_size:
+        B:
+          - *z_size
+          - *xy_size_precrop
+          - *xy_size_precrop
+        C:
+          - *z_size
+          - *xy_size_precrop
+          - *xy_size_precrop
+      stride:
+        B: *stride
+        C: *stride
+      data_slice:
+        B: ':52, :, :' # 40
+        C: '70:, :, :' # 75
+
+    volume_config:
+      raw:
+        path:
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
+        path_in_file: 'volumes/raw_2x'
+        dtype: float32
+#        sigma: 0.025
+        padding_mode: "reflect"
+        padding: *dataset_padding
+      segmentation:
+        path:
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
+        path_in_file: 'volumes/labels/neuron_ids_fixed_2x'
+        dtype: int32
+        padding_mode: "constant"
+        padding: *dataset_padding
+      extra_masks:
+        path:
+          B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+          C: '$DATA_HOMEDIR/training_data/sampleC.h5'
+        path_in_file: 'volumes/labels/various_masks_noDefects_2x'
+        dtype: int32
+        padding_mode: "constant"
+        padding: *dataset_padding
+        label_volume: False
+
+
+  infer:
+    inference_mode: True
+    loader_config:
+      # Number of processes to use for loading data. Set to (say) 10 if you wish to
+      # use 10 CPU cores, or to 0 if you wish to use the same process for training and
+      # data-loading (generally not recommended).
+      batch_size: 1
+      num_workers: 4
+      drop_last: False
+      #      pin_memory: False
+      shuffle: False
+    name: C
+
+    master_config:
+      downscale_and_crop:
+        # Inputs:
+        - {ds_factor: [1, 1, 1],
+           crop_factor: [1, 1, 1],
+           apply_to: 0}
+
+    volume_config:
+      # Sliding window size
+      window_size:
+        - *z_size
+        - *xy_size
+        - *xy_size
+      stride: [40, 40, 40] # Not needed anymore, automatically deduced
+      data_slice: ':,:,:'
+#      data_slice: ':14,:,:'
+      padding_mode: "reflect"
+      padding:
+        A+: [[0,0], [0,0], [0,0]]
+        B+: [[0,0], [0,0], [0,0]]
+        C+: [[0,0], [0,0], [0,0]]
+        A: *dataset_padding
+        B: *dataset_padding
+        C: *dataset_padding
+        0: *dataset_padding
+        1: *dataset_padding
+        2: *dataset_padding
+      path:
+        A+: '$DATA_HOMEDIR/test_data/sampleA+_cropped_no_crop.h5'
+        B+: '$DATA_HOMEDIR/test_data/sampleB+_cropped_no_crop.h5'
+        C+: '$DATA_HOMEDIR/test_data/sampleC+_cropped_no_crop.h5'
+        A: '$DATA_HOMEDIR/training_data/sampleA.h5'
+        B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+        C: '$DATA_HOMEDIR/training_data/sampleC.h5'
+      path_in_file: 'volumes/raw_2x'
+      dtype: float32
+
+inference:
+  crop_prediction: # How much I crop the predicted tensor: (local_crop in the output resolution)
+    - [2,2]
+    - [24,24]
+    - [24,24]
+#    - [0,0]
+#    - [0,0]
+#    - [0,0]
+  return_patch_mask: False # Make sure to exclude the invalid affinities
+  output_dws_fact: [1, 1, 1]
+#  autopad_dataset: True #TODO: this would be nice, but not clear how to do it...
+
+
+model:
+#  model_class: confnets.models.MultiScaleInputMultiOutputUNet
+  model_class: LSIMasks.models.latent_mask_model.LatentMaskModel
+  model_kwargs:
+    depth: 3
+    upsampling_mode: 'nearest'
+    res_blocks_specs: [[True], [True], [True], [True]]
+    res_blocks_specs_decoder: [[True], [True], [True], [True]]
+    encoder_fmaps: [32, 64, 128, 256]
+    decoder_fmaps: [48, 64, 128, 256]
+    return_input: True
+    number_multiscale_inputs: 1
+    in_channels: 1
+    scale_factor: [1, 2, 2]
+    decoder_crops: # Crops AFTER the res_blocks at each level (at zero, we crop at the end)
+      0: ":, 8:-8, 8:-8"
+      1: ":, 4:-4, 4:-4"
+      2: ":, 2:-2, 2:-2"
+
+#    output_branches_specs:
+#      - {out_channels: 1, activation: "Sigmoid", normalization: None}
+#      - {out_channels: 1, activation: "ReLU", normalization: "GroupNorm", }
+    output_branches_specs:
+      global:
+        activation: ReLU
+        nb_norm_groups: 16
+        out_channels: *size_encoded_latent_mask
+      0: {depth: 0, normalization: GroupNorm}
+      1: {depth: 0, normalization: GroupNorm}
+      2: {depth: 1, normalization: GroupNorm}
+      3: {depth: 2, normalization: GroupNorm}
+    mask_decoders_kwargs:
+      global:
+        feature_maps: 16
+        crop_slice_prediction: "2:-2,:,:" # Pre-crop part of embeddings prediction-tensor to avoid training on borders
+      0:
+        target_index: 0 # Index of the associated target tensor loaded in the batch-list
+        mask_shape: [5,7,7]
+        mask_dws_fact: [1, 1, 1] # Downscaling factor of the mask (with respect to the given target!)
+        pred_dws_fact: [1, 1, 1] # Downscaling factor of the predicted embedding With respect to the given target!
+        sample_strides: # in the original resolution (of the target)
+          - [2, 7, 7]
+        limit_nb_decoded_masks_to: # 'factor', 'number'
+          - [120, 'number']
+        max_random_crop: [1, 7, 7] # in the donwscaled res
+      1:
+        target_index: 0
+        mask_shape: [5,7,7]
+        mask_dws_fact: [1, 4, 4]
+        pred_dws_fact: [1, 1, 1]
+        sample_strides:
+          - [2, 7, 7]
+        limit_nb_decoded_masks_to: # 'factor', 'number'
+          - [120, 'number']
+        max_random_crop: [1, 7, 7]
+      2:
+        target_index: 1
+        mask_shape: [5,7,7]
+        mask_dws_fact: [1, 2, 2]
+        pred_dws_fact: [1, 1, 1]
+        sample_strides:
+         - [2, 7, 7]
+        limit_nb_decoded_masks_to: [120, 'number'] # 'factor', 'number'
+        max_random_crop: [1, 4, 4]
+      3:
+        target_index: 2
+        mask_dws_fact: [1, 2, 2]
+        pred_dws_fact: [1, 1, 1]
+        mask_shape: [5,7,7]
+        sample_strides:
+         - [2, 7, 7]
+        limit_nb_decoded_masks_to: [90, 'number'] # 'factor', 'number'
+#            limit_nb_decoded_masks_to: [0.25, 'factor'] # 'factor', 'number'
+        max_random_crop: [1, 2, 2]
+
+trainer:
+  max_epochs: 200 # basically infinite
+  num_targets: 1
+
+  criterion:
+    loss_name: "LSIMasks.losses.latent_mask_loss.LatentMaskLoss"
+    kwargs:
+      loss_type: "Dice" # "MSE"
+      boundary_label: 2
+
+
+
+  optimizer:
+    Adam:
+      lr: 0.0001
+      weight_decay: 0.0005
+      amsgrad: True
+#      betas: [0.9, 0.999]
+
+  intervals:
+    save_every: [1000, 'iterations']
+    validate_every:
+      frequency : [100, 'iterations']
+      for_num_iterations: 5
+
+  tensorboard:
+    log_scalars_every: [1, 'iterations']
+    log_images_every: [500, 'iterations']
+    log_histograms_every: 'never'
+    send_image_at_batch_indices: [0]
+    send_image_at_channel_indices: [0]
+##    send_volume_at_z_indices: 'mid'
+#    split_config_keys: True
+#    log_anywhere: ['scalars']
+
+  callbacks:
+#    gradients:
+#      LogOutputGradients:
+#        frequency: 1
+
+
+    essentials:
+      SaveAtBestValidationScore:
+        smoothness: 0
+        verbose: True
+#      GradientClip:
+#        clip_value: 1e-3
+#      SaveModelCallback:
+#        save_every: 500
+#      PlotReconstructedCallback:
+#        plot_every: 100
+
+    scheduling:
+      AutoLR:
+        monitor: 'validation_loss'
+        factor: 0.99
+        patience: '100 iterations'
+        monitor_while: 'validating'
+        monitor_momentum: 0.75
+#        cooldown_duration: '50000 iterations'
+        consider_improvement_with_respect_to: 'previous'
+        verbose: True
+
+
+
+firelight:
+  pcaEmbeddings_lvl0:
+    ImageGridVisualizer:
+
+      input_mapping:
+        global: [B: ":", D: "2:7"] # the mapping specified in 'global' is applied to all keys
+#        global: [B: ":", D: ":"] # the mapping specified in 'global' is applied to all keys
+
+      pad_width: 1  # width of the border between images in pixels
+      pad_value: .2  # intensity of the border pixels
+      upsampling_factor: 2  # the whole grid is upsampled by this factor
+
+      row_specs: ['H', 'S', 'B', 'V']
+      column_specs: ['W', 'C', 'D', ]
+
+      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+      visualizers:
+
+        #        # visualize raw input
+        - SegmentationVisualizer:
+            input: ['target', index: 0, C: 0, W: "24:-24", H: "24:-24"]
+            background_label: 0
+        - IdentityVisualizer:
+            input: ['inputs', index: 0, W: "24:-24", H: "24:-24"]
+            cmap: gray
+        - PcaVisualizer:
+            input: ['prediction', index: 0]
+        - PcaVisualizer:
+            input: ['prediction', index: 1]
+#        - PcaVisualizer:
+#            input: ['prediction', index: 2]
+
+
+#  glia_mask:
+#    ImageGridVisualizer:
+#
+#      input_mapping:
+#        global: [B: ":", D: "2:7"] # the mapping specified in 'global' is applied to all keys
+##        global: [B: ":", D: ":"] # the mapping specified in 'global' is applied to all keys
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'B', 'V']
+#      column_specs: ['W', 'C', 'D', ]
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        #        # visualize raw input
+##        - IdentityVisualizer:
+##            input: ['inputs', index: 0, W: "8:-8", H: "8:-8"]
+##            cmap: gray
+#        - IdentityVisualizer:
+#            input: ['glia_target_d0', C: 0]
+#            cmap: gray
+#            value_range: [0,1]
+#        - IdentityVisualizer:
+#            input: ['glia_pred_d0', C: 0]
+#            cmap: gray
+#            value_range: [0,1]
+
+
+
+#  pcaEmbeddings_lvl1:
+#    ImageGridVisualizer:
+#
+#      input_mapping:
+#        global: [B: ":", D: "2:7"] # the mapping specified in 'global' is applied to all keys
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'B', 'V']
+#      column_specs: ['W', 'C', 'D', ]
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        - SegmentationVisualizer:
+#            input: ['target', index: 1, C: 0, W: "8:-8", H: "8:-8"]
+#            background_label: 0
+#        - IdentityVisualizer:
+#            input: ['inputs', index: 1, W: "8:-8", H: "8:-8"]
+#            cmap: gray
+#
+##        # visualize raw input
+#        - PcaVisualizer:
+#            input: ['prediction', index: 3]
+#  pcaEmbeddings_lvl2:
+#    ImageGridVisualizer:
+#
+#      input_mapping:
+#        global: [B: ":"] # the mapping specified in 'global' is applied to all keys
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'B', 'V']
+#      column_specs: ['W', 'C', 'D', ]
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        #        # visualize raw input
+#        - PcaVisualizer:
+#            input: ['prediction', index: 4,  D: "2: 7"]
+#
+
+#  debug_depth_0:
+#    ImageGridVisualizer:
+#
+#      input_mapping:
+#        global: [B: ":"] # the mapping specified in 'global' is applied to all keys
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'B', 'V']
+#      column_specs: ['W', 'C', 'D', ]
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        - IdentityVisualizer:
+#            input: ['inputs', index: 1, ]
+#            cmap: gray
+#        - IdentityVisualizer:
+#            input: ['input_ds']
+#            cmap: gray
+#        - PcaVisualizer:
+#            input: ['mid_layer']
+
+
+#  debug_depth_1:
+#    ImageGridVisualizer:
+#      input_mapping:
+#        global: [B: ":", W: "::2", H: "::2", D: "2:7"] # the mapping specified in 'global' is applied to all keys
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#      row_specs: ['H', 'S', 'B', 'V']
+#      column_specs: ['W', 'C', 'D', ]
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#        - PcaVisualizer:
+#            input: ['encoder_layer_depth_1']
+#  debug_depth_2:
+#    ImageGridVisualizer:
+#      input_mapping:
+#        global: [B: ":", D: "2:7"] # the mapping specified in 'global' is applied to all keys
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#      row_specs: ['H', 'S', 'B', 'V']
+#      column_specs: ['W', 'C', 'D', ]
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#        - PcaVisualizer:
+#            input: ['encoder_layer_depth_2']
+##  debug_depth_3:
+##    ImageGridVisualizer:
+##      input_mapping:
+##        global: [B: ":"] # the mapping specified in 'global' is applied to all keys
+##      pad_width: 1  # width of the border between images in pixels
+##      pad_value: .2  # intensity of the border pixels
+##      upsampling_factor: 2  # the whole grid is upsampled by this factor
+##      row_specs: ['H', 'S', 'B', 'V']
+##      column_specs: ['W', 'C', 'D', ]
+##      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+##      visualizers:
+##        - PcaVisualizer:
+##            input: ['encoder_layer_depth_3']
+#  debug_depth_base:
+#    ImageGridVisualizer:
+#      input_mapping:
+#        global: [B: ":", D: "2:7"] # the mapping specified in 'global' is applied to all keys
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#      row_specs: ['H', 'S', 'B', 'V']
+#      column_specs: ['W', 'C', 'D', ]
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#        - PcaVisualizer:
+#            input: ['encoder_layer_depth_base']
+
+
+#  rdmPatches_l0:
+#    ImageGridVisualizer:
+#      input_mapping:
+#        global: [B: ":", D: ":"]
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 5  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'D', 'C', 'B']
+#      column_specs: ['W', 'V']
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        - OverlayVisualizer:
+#            visualizers:
+#              - SegmentationVisualizer:
+#                  input: ['gt_label_patch_l0']
+#                  background_label: 0
+#                  opacity: 0.5 # Make output only partially opaque.
+#              - IdentityVisualizer:
+#                  input: ['raw_patch_l0']
+#                  cmap: gray
+##        - IdentityVisualizer:
+##            input: ['raw_patch_l0']
+##            cmap: gray
+#        - IdentityVisualizer:
+#            input: ['gt_mask_patch_l0']
+#            cmap: gray
+#            value_range: [0,1]
+#        - IdentityVisualizer:
+#            input: ['pred_patch_l0']
+#            cmap: gray
+#            value_range: [0,1]
+#
+#  rdmPatches_l1:
+#    ImageGridVisualizer:
+#      input_mapping:
+#        global: [B: ":", D: ":"]
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 1  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'D', 'C', 'B']
+#      column_specs: ['W', 'V']
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        - OverlayVisualizer:
+#            visualizers:
+#              - SegmentationVisualizer:
+#                  input: ['gt_label_patch_l1']
+#                  background_label: 0
+#                  opacity: 0.5 # Make output only partially opaque.
+#              - IdentityVisualizer:
+#                  input: ['raw_patch_l1']
+#                  cmap: gray
+##        - IdentityVisualizer:
+##            input: ['raw_patch_l1']
+##            cmap: gray
+#        - IdentityVisualizer:
+#            input: ['gt_mask_patch_l1']
+#            cmap: gray
+#            value_range: [0,1]
+#        - IdentityVisualizer:
+#            input: ['pred_patch_l1']
+#            cmap: gray
+#            value_range: [0,1]
+#
+#  rdmPatches_l2:
+#    ImageGridVisualizer:
+#      input_mapping:
+#        global: [B: ":", D: ":"]
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'D', 'C', 'B']
+#      column_specs: ['W', 'V']
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        - OverlayVisualizer:
+#            visualizers:
+#              - SegmentationVisualizer:
+#                  input: ['gt_label_patch_l2']
+#                  background_label: 0
+#                  opacity: 0.5 # Make output only partially opaque.
+#              - IdentityVisualizer:
+#                  input: ['raw_patch_l2']
+#                  cmap: gray
+##        - IdentityVisualizer:
+##            input: ['raw_patch_l2']
+##            cmap: gray
+#        - IdentityVisualizer:
+#            input: ['gt_mask_patch_l2']
+#            cmap: gray
+#            value_range: [0,1]
+#        - IdentityVisualizer:
+#            input: ['pred_patch_l2']
+#            cmap: gray
+#            value_range: [0,1]
+##
+#  rdmPatches_l3:
+#    ImageGridVisualizer:
+#      input_mapping:
+#        global: [B: ":", D: ":"]
+#
+#      pad_width: 1  # width of the border between images in pixels
+#      pad_value: .2  # intensity of the border pixels
+#      upsampling_factor: 2  # the whole grid is upsampled by this factor
+#
+#      row_specs: ['H', 'S', 'D', 'C', 'B']
+#      column_specs: ['W', 'V']
+#
+#      # Container visualizers always have the 'visualizers' argument. Its value has to be a list of visualizers
+#      visualizers:
+#
+#        - OverlayVisualizer:
+#            visualizers:
+#              - SegmentationVisualizer:
+#                  input: ['gt_label_patch_l3']
+#                  background_label: 0
+#                  opacity: 0.5 # Make output only partially opaque.
+#              - IdentityVisualizer:
+#                  input: ['raw_patch_l3']
+#                  cmap: gray
+##        - IdentityVisualizer:
+##            input: ['raw_patch_l3']
+##            cmap: gray
+#        - IdentityVisualizer:
+#            input: ['gt_mask_patch_l3']
+#            cmap: gray
+#            value_range: [0,1]
+#        - IdentityVisualizer:
+#            input: ['pred_patch_l3']
+#            cmap: gray
+#            value_range: [0,1]

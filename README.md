@@ -15,14 +15,17 @@ If you plan to use the code to train your model, then you will need to install s
 ### Training your model  
 - Download the training data from [here](https://heibox.uni-heidelberg.de/d/e182f3807b0c4761a999/)
 - Start the training script with:
-`CUDA_VISIBLE_DEVICES=0 ipython experiments/cremi/train_model.py -- yourExperimentName --DATA_HOMEDIR path/to/the/cremi/data/you/downloaded --inherit v1_main.yml  --config.loaders.general.loader_config.batch_size 1 --config.trainer.optimizer.Adam.lr 1e-4 `
-- You find the main configuration file in `experiments/cremi/configs/v1_main.yml`   
+`CUDA_VISIBLE_DEVICES=0 ipython experiments/cremi/train_model.py -- yourExperimentName --DATA_HOMEDIR path/to/the/cremi/data/you/downloaded --inherit main_config.yml  --config.loaders.general.loader_config.batch_size 1 --config.trainer.optimizer.Adam.lr 1e-4 `
+- You find the main configuration file in `experiments/cremi/configs/main_config.yml`   
+
+# TODO: add custom path for experiment folder
+
 -->
 
 ### Starting the training from scratch:
 To start the training, run the following command:
 ```
-CUDA_VISIBLE_DEVICES=0 ipython experiments/cremi/train_model.py -- <yourExperimentName> --DATA_HOMEDIR <path/to/the/cremi/data/you/downloaded> --inherit v1_main.yml
+CUDA_VISIBLE_DEVICES=0 ipython experiments/cremi/train_model.py -- <yourExperimentName> --DATA_HOMEDIR <path/to/the/cremi/data/you/downloaded> --inherit main_config.yml
 ```
 (the one just given is a single command: for readability it was split into multiple lines)
 
@@ -35,7 +38,3 @@ Go to the experiment folder (by default placed in the `experiments/cremi/runs` f
 For this, you will need to install tensorflow, with `pip install --upgrade tensorflow`
 
 
-
-
-### Visualize your predictions in tensorboard
-Coming soon
