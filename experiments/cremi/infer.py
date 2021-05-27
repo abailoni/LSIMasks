@@ -1,42 +1,26 @@
 from LSIMasks.utils.various import change_paths_config_file
 
-from speedrun import BaseExperiment, TensorboardMixin, InfernoMixin, FirelightLogger
+from speedrun import BaseExperiment, TensorboardMixin, InfernoMixin, FirelightLogger, AffinityInferenceMixin
 from speedrun.log_anywhere import register_logger, log_image, log_scalar
 from speedrun.py_utils import create_instance
 
 from copy import deepcopy
-import LSIMasks
 
 import os
 import torch
-import torch.nn as nn
-
-# from inferno.trainers.callbacks.essentials import SaveAtBestValidationScore
-from neurofire.criteria.loss_wrapper import LossWrapper
-from inferno.extensions.criteria.set_similarity_measures import SorensenDiceLoss
-from inferno.trainers.callbacks import Callback
-from inferno.io.transform.base import Compose
+import numpy as np
 
 from segmfriends.utils.config_utils import recursive_dict_update
+from segmfriends.utils.various import check_dir_and_create
+from segmfriends.utils.various import writeHDF5
 
-from shutil import copyfile
 import sys
-
-
-from neurofire.criteria.loss_wrapper import LossWrapper
-from neurofire.criteria.loss_transforms import ApplyAndRemoveMask
-from neurofire.criteria.loss_transforms import RemoveSegmentationFromTarget
-from neurofire.criteria.loss_transforms import InvertTarget
 
 from segmfriends.datasets.cremi import get_cremi_loader
 
-import confnets
-
-
-# torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
 
-class BaseCremiExperiment(BaseExperiment, InfernoMixin, TensorboardMixin):
+class BaseCremiExperiment(BaseExperiment, AffinityInferenceMixin):
     def __init__(self, experiment_directory=None, config=None):
         super(BaseCremiExperiment, self).__init__(experiment_directory)
         # Privates
@@ -155,6 +139,24 @@ class BaseCremiExperiment(BaseExperiment, InfernoMixin, TensorboardMixin):
         kwargs = recursive_dict_update(self.get('loaders/val'), deepcopy(self.get('loaders/general')))
         return get_cremi_loader(kwargs)
 
+    def build_infer_loader(self):
+        kwargs = deepcopy(self.get('loaders/infer'))
+        loader = get_cremi_loader(kwargs)
+        return loader
+
+    def save_infer_output(self, output):
+        print("Saving....")
+        assert self.get("export_path") is not None
+        dir_path = os.path.join(self.get("export_path"),
+                                self.get("name_experiment", default="generic_experiment"))
+        check_dir_and_create(dir_path)
+        filename = os.path.join(dir_path, "predictions_sample_{}.h5".format(self.get("loaders/infer/name")))
+        print("Writing to ", self.get("inner_path_output", 'data'))
+        writeHDF5(output.astype(np.float16), filename, self.get("inner_path_output", 'data'))
+        print("Saved to ", filename)
+
+        # Dump configuration to export folder:
+        self.dump_configuration(os.path.join(dir_path, "prediction_config.yml"))
 
 if __name__ == '__main__':
     print(sys.argv[1])
@@ -201,5 +203,4 @@ if __name__ == '__main__':
         else:
             break
     cls = BaseCremiExperiment
-    cls().run()
-
+    cls().infer()

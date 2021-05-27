@@ -1,0 +1,112 @@
+# This config should be combined for example with "main_config.yml"
+
+shortcuts:
+  z_size: &z_size 12
+  xy_size: &xy_size 272
+#  rule of thumb:
+#  If Shape of final prediction: torch.Size([1, x, x]) and
+#  Input size (1, y, y) then
+#  Padding of the dataset should be >= (y-x)/2 if you want to avoid border effects with parts that are not predicted.
+#  (Assuming that the output of the model is at the same resolution of the input dataset)
+  padding: &dataset_padding [[0,0], [50,50], [50,50]]
+
+
+loaders:
+  infer:
+    inference_mode: True
+    loader_config:
+      # Number of processes to use for loading data. Set to (say) 10 if you wish to
+      # use 10 CPU cores, or to 0 if you wish to use the same process for training and
+      # data-loading (generally not recommended).
+      batch_size: 1
+      num_workers: 4
+      drop_last: False
+      #      pin_memory: False
+      shuffle: False
+
+    # Which CREMI sample should be used for inference:
+    name: C
+
+    volume_config:
+      # Sliding window size
+      window_size:
+        - *z_size
+        - *xy_size
+        - *xy_size
+      stride: [40, 40, 40] # Not needed anymore, automatically deduced during inference
+      padding_mode: "reflect"
+      padding:
+        A: *dataset_padding
+        B: *dataset_padding
+        C: *dataset_padding
+      path:
+        A: '$DATA_HOMEDIR/training_data/sampleA.h5'
+        B: '$DATA_HOMEDIR/training_data/sampleB.h5'
+        C: '$DATA_HOMEDIR/training_data/sampleC.h5'
+      path_in_file: 'volumes/raw_2x'
+      dtype: float32
+      # With this parameter you can predict only a small part of the dataset:
+      data_slice: ':15,:,:'
+
+inference:
+  # How much I crop the predicted tensor: (local_crop in the output resolution)
+  crop_prediction:
+    - [0,0]
+    - [0,0]
+    - [0,0]
+
+  # Make sure to exclude the invalid affinities:
+  # your model can return a second output tensor that should be a binary tensor indicating with outputs are valid and
+  #  which are not
+  return_patch_mask: False
+
+  # Change this if the resolution of the output is different from the input:
+  output_dws_fact: [1, 1, 1]
+
+#  # Should the predicted patches overlap? If yes, by how much?
+#  window_overlap: [1, 30, 30]
+#  blending_kwargs:
+#    dim: 3
+
+  # If your model outputs more than one tensor, use this parameter to select the wanted one
+  index_output: 0
+
+model:
+  model_class: LSIMasks.models.affs_from_latent_masks.AffinitiesFromLatentMasks
+  model_kwargs:
+    # ----------------
+    # Affinities and offsets definition
+    # ----------------
+    #
+    # List of lists, each one with 2 items:
+    #     The first item is the offset along z, x, and y.
+    #     An offset [0,2,0] consider the pixel in the mask that is 2 pixels away from the central pixel along x
+    #     An offset [0,0,3] consider the pixel in the mask that is 3 pixels away from the central pixel along y
+    #
+    #     The second item specify the indices of the masks to be used (in case more are predicted by the model).
+    #
+    #
+    # Example: [-1,0,0], [0,1]] means get affinity with offset [1,0,0] (one pixel away from center along z),
+    #          using both the values predicted in masks 0 and mask 1.
+    offsets:
+      # Short-range affinities:
+      - [[-1,0,0], [0,1]]
+      - [[0,-1,0], [0]]
+      - [[0,0,-1], [0]]
+      - [[0,-4,0], [1]]
+      - [[0,0,-4], [1]]
+      - [[0,-4,-4], [1]]
+      - [[0, 4,-4], [1]]
+      # Longer range affinities:
+      - [[-2,0,0], [0,1]]
+      - [[0,-8,-8], [1]]
+      - [[0, 8,-8], [1]]
+      - [[0,-12,0], [1]]
+      - [[0, 0,-12], [1]]
+
+#    pre_crop_pred: "2:-2, 2:-2, 2:-2"
+
+    slicing_config:
+      window_size: [3,110,110]
+
+
