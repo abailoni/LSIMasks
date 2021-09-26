@@ -35,7 +35,7 @@ print("Clustering took {} s".format(runtime))
 from segmfriends.utils import cremi_score
 # TODO: load corresponding GT labels
 # Here we generate some random ones:
-gt = np.random.uniform(size=IMAGE_SHAPE).astype('uint32')
+gt = np.random.randint(20, size=IMAGE_SHAPE).astype('uint32')
 assert gt.shape == final_instance_segmentation.shape
 scores = cremi_score(gt, final_instance_segmentation, return_all_scores=True)
 print(scores)
