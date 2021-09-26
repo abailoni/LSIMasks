@@ -11,9 +11,9 @@ source $CONDA_BASE/etc/profile.d/conda.sh
 
 # TODO: uncomment, create req.yaml?
 # Only install the dependencies (we will install inferno from the latest github repo):
-conda create -n LSIMasks --only-deps -c pytorch -c abailoni -c conda-forge gasp cython firelight inferno ipython jupyter
+conda create -n LSIMasks --only-deps -c pytorch -c abailoni -c conda-forge gasp cython firelight inferno ipython
 conda activate LSIMasks
-conda install -c abailoni -c conda-forge gasp cython firelight ipython jupyter
+conda install -c abailoni -c conda-forge gasp cython firelight ipython
 
 # Install extra repositories:
 if [ ! -d "./downloads" ]; then mkdir ./downloads; fi
@@ -54,6 +54,7 @@ cd ..
 
 git clone https://github.com/abailoni/segmfriends.git
 cd ./segmfriends
+git checkout postproc_affs
 python setup.py develop
 cd ..
 

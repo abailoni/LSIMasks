@@ -123,7 +123,9 @@ class LatentMaskLoss(nn.Module):
             pred = pred[crop_slice_prediction]
             full_target_shape = gt_segm.shape[-3:]
 
-
+            cropped_raw = auto_crop_tensor_to_shape(raw_input, pred.shape)
+            cropped_raw = cropped_raw[pred_crop_slice]
+            plt.matshow(cropped_raw, cmap='gray')
 
             # # ----------------------------
             # # Patch-Loss:
